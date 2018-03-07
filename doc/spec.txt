@@ -1,0 +1,104 @@
+CabRT is a open source library to order rides.
+
+Specification on the prototype development:
+
+Entities envolved into the process:
+- Client
+- Driver
+- CabRT
+- Reddis DB
+
+Client <-> CabRT, Driver <-> CabRT communicate
+via WebSocket with encryption and authentication.
+All of the packets use JSON as data format.
+
+All of the real time data lie within CabRT or
+are transferred to ReddisDB.
+
+What entites are basically doing:
+- Client:
+  * connects
+  * tracks its location
+  * makes new ride order
+  * rejects a driver
+  * filter a driver
+  * accepts a driver
+  * sets a ride destination
+  * agrees on ride price
+  * cancels ride
+  * terminates ride at midpoint
+  * DDoS server
+  * sends malicous JSON
+  * gets frustrated with no drivers coming
+- Driver:
+  * connects
+  * tracks its location
+  * filter clients
+  * filter ride requests
+  * offer himself to a new ride
+  * requests neighbor drivers
+  * requests neighbor clients
+  * deviates from the ride route, length, implying price changes
+  * terminates ride for a reason
+- CabRT
+  * listens clients
+  * listens drivers
+  * tracks clients
+  * tracks drivers
+  * responses to neighbor requests
+  * matches clients and drivers up
+  * takes filters into account, avoid a double reject by client
+  * estimates ride parameters, i.e. length, possible route, price
+  * estimates overcrowded places with either drivers or clients
+
+  * exports critical, vulnerable to loss data to ReddisDB,
+    e.g. locks APP processes, before the matched ride begins,
+    to export clients, drivers, begin and end locations
+  * requests authentication tokens from ReddisDB
+    and all of the relevant client/driver data:
+    low rate statistics, ids, filter preferences
+  * possibly utilizes DB based geohash methods,
+    this can be actually implemented from scratch
+    or even stubbed with a naive approach to reach working state quicker
+
+Actions log (includes packets, plus any internal statistics/actions/state changes) example:
+1,{type:'new_client',client:{id:0}}
+2,{type:'new_driver',driver:{id:0}}
+3,{type:'client_stat',stat:{geohash:'4wff'}}
+4,{type:'driver_stat',stat:{geohash:'w4ff'}}
+5,{type:'client_order',order:{from_goehash:'w4ff',to_geohash:'4ffw'}}
+6,{type:'new_match',match:{clients:[{id:0}],drivers:[{id:0}]}}
+7,{type:'match_action',action:{name:'CLIENT_REJECTS_DRIVER',driver_id:0}}
+8,{type:'match_policy',policy:{name:'BAN_MATCH_PAIR',client_id:0,driver_id:0,timeout:'1h'}}
+9,{type:'neighbors_request',neighbors:[{client:{geohash:'ff'}},{driver:{geohash:'ff'}}]}
+
+Drivers might like to see RAW data. It can be afforded, either the request frequency
+lowers (once per 5 to 20 minutes), or the data is split into chunks that are sent consequently.
+Thus the server load per client reduces.
+
+It's not clear what Map API to use!
+
+Initial unit tests to implement and fix:
+- static_neighbors_test
+- static_matching_between_client_and_driver
+- statis_route_length
+- static_route_points
+- static_route_price
+- static_neighbors_filter
+- static_client_rejects_driver
+- static_client_tracking
+- static_driver_tracking
+- static_malicous_query
+- static_authenticate
+- static_no_auth_error
+- static_double_driver_rejection_error
+- static_2000_per_second_neighbors_requsts
+- static_no_drivers_when_clients_wait_error
+- static_overcrowded_area_with_drivers_error
+- static_client_terminates_ride_at_midpoint
+- static_client_changes_destination
+- static_driver_deviates_from_route/length
+- static_driver_terminates_ride_at_midpoint
+- static_unbalanced_pick_up_time_per_area
+- static_unbalanced_clients_per_are/hour/price_range
+- static_unbalanced_earning_per_driver (kind of a fun!)
